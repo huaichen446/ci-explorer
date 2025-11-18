@@ -1,0 +1,76 @@
+name: CI-Explorer Pipeline
+
+# Trigger rules: Run on push to master branch
+on:
+  push:
+    branches: [ "master" ]
+  # Allow manual trigger from the web UI
+  workflow_dispatch:
+
+# Set permissions to allow the pipeline to modify GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Define concurrency to prevent concurrent deployments
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # ----------------------------------------------------
+  # Patterns 1 & 2: Build & Test
+  # ----------------------------------------------------
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies (Pattern 1)
+        run: |
+          echo "--- [Pattern 1] Installing MkDocs ---"
+          pip install mkdocs
+
+      - name: Build Site (Pattern 1)
+        run: |
+          echo "--- [Pattern 1] Building Site ---"
+          mkdocs build --strict
+          echo "Proof: 'site' directory created."
+
+      - name: Regression Test (Pattern 2)
+        run: |
+          echo "--- [Pattern 2] Running Regression Test ---"
+          if [ -f site/index.html ]; then
+            echo "Success: site/index.html exists."
+          else
+            echo "Error: site/index.html missing!"
+            exit 1
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'site'
+
+  # ----------------------------------------------------
+  # Patterns 3 & 4: Deploy
+  # ----------------------------------------------------
+  deploy:
+    # Run only if build-and-test succeeds
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Deploy to GitHub Pages (Pattern 3)
+        id: deployment
+        uses: actions/deploy-pages@v4
