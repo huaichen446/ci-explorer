@@ -1,5 +1,5 @@
-# Welcome to CI-Explorer
+# 欢迎来到 CI-Explorer
 
-This is my automated deployment experiment.
+这是我的自动化部署实验。
 
-**Version: v1.0**
+**版本：v2.0 (自动更新成功！)**
