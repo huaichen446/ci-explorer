@@ -1,0 +1,69 @@
+# .gitlab-ci.yml
+
+# 1. Define pipeline stages
+stages:
+  - build
+  - test
+  - deploy
+
+# 2. Define workflow: run only on master branch
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# ----------------------------------------------------
+# Pattern 1: Run code directly in container (Build)
+# ----------------------------------------------------
+build_site:
+  stage: build
+  image: python:3.9-slim
+  script:
+    - echo "--- [Pattern 1] Start: Running code in Python container ---"
+    - echo "Step 1.1: Installing dependencies (mkdocs)..."
+    - pip install mkdocs
+    - echo "Step 1.2: Executing core build command (mkdocs build)..."
+    - mkdocs build --strict
+    - echo "Step 1.3: Checking results..."
+    - ls -l
+    - echo "--- [Pattern 1] Proof: 'site' directory created. Build successful. ---"
+  artifacts:
+    # Save the build artifact 'site' directory to pass to subsequent stages
+    paths:
+      - site/
+
+# ----------------------------------------------------
+# Pattern 2: Run code in container and execute regression tests
+# ----------------------------------------------------
+test_site:
+  stage: test
+  image: alpine:latest # Use a lightweight image
+  dependencies:
+    - build_site # Automatically download 'site' directory
+  script:
+    - echo "--- [Pattern 2] Start: Running regression tests in Alpine container ---"
+    - echo "Step 2.1: Checking if 'site' directory exists..."
+    - ls -l
+    - echo "Step 2.2: Executing regression test (checking if index.html exists)..."
+    # 'test' is a shell command. If the file doesn't exist, it fails and stops the pipeline
+    - test -f site/index.html
+    - echo "--- [Pattern 2] Proof: 'site/index.html' exists. Regression test passed. ---"
+
+# ----------------------------------------------------
+# Pattern 3 & 4: Deploy to GitLab Pages (Provision/Replace Service)
+# ----------------------------------------------------
+pages:
+  stage: deploy
+  image: alpine:latest
+  dependencies:
+    - build_site # We need the original 'site' directory
+  script:
+    - echo "--- [Pattern 3] Start: Deploying service ---"
+    - echo "Step 3.1: Renaming 'site' directory to 'public' (GitLab Pages requirement)"
+    - mv site public
+    - echo "Step 3.2: Checking 'public' directory..."
+    - ls -l
+    - echo "--- [Pattern 3] Proof: 'public' directory ready. GitLab Pages will host it automatically. ---"
+  artifacts:
+    # Final artifact, GitLab Pages will host this directory
+    paths:
+      - public/
